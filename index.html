@@ -271,6 +271,7 @@ section.alt{background:var(--deep);}
   display:flex;align-items:center;justify-content:center;
   position:relative;overflow:hidden;
 }
+.tab-visual img{display:block;width:100%;height:100%;object-fit:cover;}
 .tab-detail h3{font-size:24px;color:var(--foam);margin-bottom:6px;}
 .tab-detail .country{font-family:'JetBrains Mono';font-size:12px;color:var(--teal-bright);margin-bottom:16px;}
 .tab-detail p{font-size:14px;color:var(--foam-dim);margin-bottom:20px;}
@@ -732,7 +733,7 @@ const GRID = 'rgba(244,241,232,0.08)';
 /* ---- Global examples tabs ---- */
 const examples=[
   {name:'SeaGen',country:'Inggris',img:'seagen.png',desc:'Salah satu turbin arus laut komersial pertama di dunia, dipasang di Selat Strangford, Irlandia Utara. Menjadi rujukan awal teknologi turbin sumbu horizontal bawah laut.',cap:'1.2 MW',year:'2008'},
-  {name:'Orbital O2',country:'Skotlandia',img:'orbital-o2.jpg',desc:'Turbin terapung berbentuk platform permukaan dengan dua rotor yang dapat diturunkan ke kolom air. Dirancang untuk perawatan yang lebih mudah karena dapat diakses dari permukaan.',cap:'2 MW',year:'2021'},
+  {name:'Orbital O2',country:'Skotlandia',img:'orbital.jpg',desc:'Turbin terapung berbentuk platform permukaan dengan dua rotor yang dapat diturunkan ke kolom air. Dirancang untuk perawatan yang lebih mudah karena dapat diakses dari permukaan.',cap:'2 MW',year:'2021'},
   {name:'MeyGen',country:'Skotlandia',img:'meygen.jpg',desc:'Salah satu proyek PLTAL skala array terbesar di dunia, berlokasi di Pentland Firth. Menggunakan turbin dasar laut yang dipasang dalam barisan untuk memaksimalkan hasil energi.',cap:'6 MW (fase 1)',year:'2017'},
   {name:'OpenHydro',country:'Prancis',img:'openhydro.jpg',desc:'Turbin berbentuk cincin terbuka (open-centre) yang dipasang pada struktur dasar laut di lepas pantai Bretagne. Desainnya mengurangi dampak terhadap biota laut yang melintas.',cap:'0.5–2 MW',year:'2010-an'},
   {name:'Kairyu',country:'Jepang',img:'kairyu.jpg',desc:'Turbin bawah laut berbentuk pesawat kembar yang dikembangkan IHI Corporation di lepas pantai Kuroshio. Mengikuti arus deras Kuroshio yang menjadi salah satu arus terkuat di dunia.',cap:'100 kW (uji coba)',year:'2022'}
@@ -755,7 +756,7 @@ examples.forEach((ex,i)=>{
   panel.className='tab-panel'+(i===0?' active':'');
   panel.id='panel-'+i;
   panel.innerHTML=`
-    <div class="tab-visual"><div style="font-size:84px;color:#3BD6C6;opacity:0.85;">${ex.icon}</div></div>
+    <div class="tab-visual"><img src="${ex.img}" alt="${ex.name}"></div>
     <div class="tab-detail">
       <h3>${ex.name}</h3>
       <div class="country">${ex.country}</div>
