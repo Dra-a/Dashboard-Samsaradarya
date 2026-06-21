@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PLTAL — Pembangkit Listrik Tenaga Arus Laut</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Expanded:wght@600;700;800&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<style>
+:root{
+  --abyss:#0A2230;
+  --deep:#0E3142;
+  --panel:#0F3B4D;
+  --teal:#0FA3A3;
+  --teal-bright:#3BD6C6;
+  --buoy:#FFC857;
+  --buoy-dim:#C99A3E;
+  --coral:#FF6B5E;
+  --foam:#F4F1E8;
+  --foam-dim:#D8D3C2;
+  --ink:#0A2230;
+  --line:rgba(244,241,232,0.14);
+  --line-bright:rgba(244,241,232,0.28);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--abyss);
+  color:var(--foam);
+  font-family:'Archivo',sans-serif;
+  line-height:1.6;
+  overflow-x:hidden;
+}
+.wrap{max-width:1280px;margin:0 auto;padding:0 32px;}
+h1,h2,h3,h4{font-family:'Archivo Expanded',sans-serif;font-weight:700;letter-spacing:-0.01em;}
+.eyebrow{
+  font-family:'JetBrains Mono',monospace;
+  font-size:12px;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  color:var(--teal-bright);
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.eyebrow::before{
+  content:"";
+  width:18px;height:1px;
+  background:var(--teal-bright);
+}
+a{color:inherit;}
+
+/* ===== NAV ===== */
+.nav{
+  position:sticky;top:0;z-index:100;
+  background:rgba(10,34,48,0.92);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.nav-inner{
+  max-width:1280px;margin:0 auto;padding:14px 32px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.nav-logo{
+  font-family:'Archivo Expanded',sans-serif;font-weight:800;font-size:16px;
+  letter-spacing:0.02em;display:flex;align-items:center;gap:8px;
+}
+.nav-logo .dot{width:8px;height:8px;border-radius:50%;background:var(--teal-bright);}
+.nav-links{display:flex;gap:28px;font-size:13px;color:var(--foam-dim);}
+.nav-links a{text-decoration:none;transition:color .15s;white-space:nowrap;}
+.nav-links a:hover{color:var(--teal-bright);}
+.nav-scroll{overflow-x:auto;scrollbar-width:none;}
+.nav-scroll::-webkit-scrollbar{display:none;}
+
+/* ===== HERO ===== */
+.hero{
+  position:relative;
+  min-height:88vh;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  overflow:hidden;
+  border-bottom:1px solid var(--line);
+}
+.hero-bg{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 60% 50% at 75% 15%, rgba(15,163,163,0.18), transparent),
+    linear-gradient(180deg, #0A2230 0%, #0C2A3A 55%, #0E3142 100%);
+  z-index:0;
+}
+.hero-content{position:relative;z-index:2;padding:100px 0 60px;}
+.hero-grid{display:grid;grid-template-columns:1.1fr 0.9fr;gap:60px;align-items:center;}
+.hero h1{
+  font-size:clamp(40px,5.2vw,68px);
+  line-height:0.98;
+  margin:18px 0 22px;
+  color:var(--foam);
+}
+.hero h1 em{font-style:normal;color:var(--teal-bright);}
+.hero p.lede{
+  font-size:17px;
+  color:var(--foam-dim);
+  max-width:520px;
+  margin-bottom:32px;
+}
+.hero p.lede b{color:var(--foam);font-weight:600;}
+.hero-stats{display:flex;gap:0;border-top:1px solid var(--line);padding-top:24px;margin-top:8px;}
+.hstat{flex:1;padding-right:20px;}
+.hstat:not(:last-child){border-right:1px solid var(--line);}
+.hstat .num{font-family:'Archivo Expanded';font-size:28px;font-weight:700;color:var(--buoy);}
+.hstat .lbl{font-size:11px;color:var(--foam-dim);text-transform:uppercase;letter-spacing:0.06em;margin-top:4px;}
+
+/* Hero visual: animated turbine/current */
+.hero-visual{position:relative;height:440px;display:flex;align-items:center;justify-content:center;}
+.current-line{
+  position:absolute;left:0;right:0;
+  height:1px;
+  background:linear-gradient(90deg, transparent, var(--teal-bright) 20%, var(--teal-bright) 80%, transparent);
+  opacity:0.35;
+}
+@keyframes flow{
+  0%{background-position:0% 0;}
+  100%{background-position:200% 0;}
+}
+.current-line.animated{
+  background:linear-gradient(90deg, transparent 0%, var(--teal-bright) 8%, transparent 16%, transparent 100%);
+  background-size:50% 100%;
+  animation:flow 3.5s linear infinite;
+  opacity:0.5;
+}
+.turbine-wrap{position:relative;z-index:2;}
+.turbine-tower{
+  width:8px;height:200px;background:linear-gradient(180deg,var(--buoy),var(--buoy-dim));
+  margin:0 auto;border-radius:2px;
+}
+.turbine-blades{
+  position:absolute;top:80px;left:50%;transform:translateX(-50%);
+  width:180px;height:180px;
+  animation:spin 5s linear infinite;
+}
+@keyframes spin{from{transform:translateX(-50%) rotate(0deg);}to{transform:translateX(-50%) rotate(360deg);}}
+.blade{
+  position:absolute;top:50%;left:50%;width:6px;height:88px;
+  background:linear-gradient(180deg,var(--foam),var(--foam-dim));
+  border-radius:50% 50% 4px 4px;
+  transform-origin:top center;
+}
+.blade:nth-child(1){transform:translate(-50%,0) rotate(0deg);}
+.blade:nth-child(2){transform:translate(-50%,0) rotate(120deg);}
+.blade:nth-child(3){transform:translate(-50%,0) rotate(240deg);}
+.turbine-hub{
+  position:absolute;top:80px;left:50%;transform:translate(-50%,-50%);
+  width:18px;height:18px;border-radius:50%;background:var(--teal-bright);
+  z-index:3;box-shadow:0 0 0 4px rgba(59,214,198,0.18);
+}
+.buoy-float{
+  position:absolute;width:34px;height:46px;
+  background:var(--foam);border-radius:6px 6px 14px 14px;
+  display:flex;align-items:center;justify-content:center;
+}
+.buoy-float::before{content:"";width:20px;height:14px;background:var(--ink);border-radius:2px;}
+.buoy-1{top:18px;right:30px;animation:bob 3.2s ease-in-out infinite;}
+.buoy-2{top:60px;right:90px;animation:bob 3.6s ease-in-out infinite 0.5s;transform:scale(0.75);opacity:0.8;}
+@keyframes bob{0%,100%{transform:translateY(0);}50%{transform:translateY(-10px);}}
+.hero-tag{
+  position:absolute;bottom:0;left:0;
+  font-family:'JetBrains Mono';font-size:11px;color:var(--foam-dim);
+  letter-spacing:0.04em;
+}
+
+/* ===== SECTION SHELL ===== */
+section{padding:80px 0;border-bottom:1px solid var(--line);position:relative;}
+section.alt{background:var(--deep);}
+.sec-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px;gap:24px;flex-wrap:wrap;}
+.sec-head h2{font-size:clamp(26px,3vw,38px);color:var(--foam);max-width:640px;}
+.sec-head .desc{font-size:14px;color:var(--foam-dim);max-width:420px;margin-top:38px;}
+.sec-num{font-family:'JetBrains Mono';font-size:13px;color:var(--teal-bright);}
+
+/* ===== CARDS ===== */
+.card{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:24px;
+}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+
+/* chart card titles */
+.chart-title{font-size:16px;font-weight:600;color:var(--foam);margin-bottom:4px;}
+.chart-sub{font-size:12px;color:var(--foam-dim);margin-bottom:16px;}
+
+/* legend */
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--foam-dim);margin-top:14px;}
+.legend span{display:flex;align-items:center;gap:6px;}
+.legend i{width:9px;height:9px;border-radius:2px;display:inline-block;}
+
+/* insight bar */
+.insight{
+  margin-top:20px;
+  background:rgba(255,200,87,0.08);
+  border-left:2px solid var(--buoy);
+  border-radius:0 8px 8px 0;
+  padding:14px 18px;
+  font-size:13.5px;
+  color:var(--foam-dim);
+}
+.insight b{color:var(--buoy);font-weight:600;}
+
+/* SDG + advantage chips */
+.chip-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.sdg-chip{
+  background:var(--abyss);border:1px solid var(--line);border-radius:8px;
+  padding:14px 12px;text-align:center;
+}
+.sdg-num{font-family:'Archivo Expanded';font-size:20px;color:var(--teal-bright);font-weight:700;}
+.sdg-name{font-size:10.5px;color:var(--foam-dim);text-transform:uppercase;letter-spacing:0.03em;margin-top:4px;line-height:1.3;}
+
+.adv-table{width:100%;border-collapse:collapse;}
+.adv-table td{padding:14px 0;border-bottom:1px solid var(--line);vertical-align:middle;}
+.adv-table tr:last-child td{border-bottom:none;}
+.adv-table td.adv-icon-cell{width:36px;padding-right:14px;}
+.adv-icon{
+  width:36px;height:36px;border-radius:8px;
+  background:rgba(15,163,163,0.14);
+  display:flex;align-items:center;justify-content:center;
+  color:var(--teal-bright);
+}
+.adv-text{font-size:13.5px;color:var(--foam);line-height:1.4;}
+
+/* ===== HOW IT WORKS (process) ===== */
+.process-rail{position:relative;display:flex;justify-content:space-between;gap:8px;margin-top:8px;}
+.process-rail::before{
+  content:"";position:absolute;top:34px;left:5%;right:5%;height:1px;
+  background:var(--line-bright);z-index:0;
+}
+.proc-step{position:relative;z-index:1;flex:1;text-align:center;}
+.proc-circle{
+  width:68px;height:68px;border-radius:50%;
+  background:var(--panel);border:1.5px solid var(--teal-bright);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 14px;font-size:26px;color:var(--teal-bright);
+}
+.proc-label{font-size:12px;color:var(--foam-dim);font-weight:500;max-width:120px;margin:0 auto;line-height:1.35;}
+.proc-step .step-num{
+  font-family:'JetBrains Mono';font-size:10px;color:var(--buoy);
+  letter-spacing:0.06em;margin-bottom:6px;display:block;
+}
+
+/* ===== GLOBAL EXAMPLES (tabs) ===== */
+.tab-row{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;}
+.tab-btn{
+  font-family:'JetBrains Mono';font-size:11.5px;letter-spacing:0.02em;
+  background:transparent;border:1px solid var(--line);color:var(--foam-dim);
+  padding:9px 16px;border-radius:7px;cursor:pointer;transition:all .15s;
+}
+.tab-btn:hover{border-color:var(--line-bright);color:var(--foam);}
+.tab-btn.active{background:var(--teal);border-color:var(--teal);color:var(--abyss);font-weight:600;}
+.tab-panel{display:none;}
+.tab-panel.active{display:grid;grid-template-columns:1fr 1.3fr;gap:32px;align-items:center;}
+.tab-visual{
+  height:280px;border-radius:10px;
+  background:linear-gradient(160deg,var(--panel),var(--deep));
+  border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;
+}
+.tab-detail h3{font-size:24px;color:var(--foam);margin-bottom:6px;}
+.tab-detail .country{font-family:'JetBrains Mono';font-size:12px;color:var(--teal-bright);margin-bottom:16px;}
+.tab-detail p{font-size:14px;color:var(--foam-dim);margin-bottom:20px;}
+.tab-meta{display:flex;gap:24px;}
+.tab-meta div{font-size:11px;color:var(--foam-dim);text-transform:uppercase;letter-spacing:0.04em;}
+.tab-meta strong{display:block;font-family:'Archivo Expanded';font-size:18px;color:var(--buoy);font-weight:700;text-transform:none;letter-spacing:0;margin-top:2px;}
+
+/* ===== INDONESIA MAP ===== */
+.map-layout{display:grid;grid-template-columns:1.5fr 1fr;gap:32px;align-items:start;}
+.map-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;position:relative;overflow:hidden;}
+.map-popup{
+  position:absolute;z-index:5;
+  background:var(--abyss);border:1px solid var(--teal-bright);border-radius:8px;
+  padding:10px 14px;font-size:12.5px;color:var(--foam);font-weight:500;
+  white-space:nowrap;pointer-events:none;
+  transform:translate(-50%,calc(-100% - 14px));
+  opacity:0;transition:opacity .12s ease;
+}
+.map-popup.visible{opacity:1;}
+.map-popup::after{
+  content:"";position:absolute;left:50%;top:100%;
+  transform:translateX(-50%);
+  border:6px solid transparent;border-top-color:var(--teal-bright);
+}
+.map-popup .mp-num{font-family:'JetBrains Mono';font-size:10px;color:var(--teal-bright);letter-spacing:0.06em;display:block;margin-bottom:2px;}
+#idmap{width:100%;}
+.strait-list{
+  display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;
+  font-size:12.5px;color:var(--foam-dim);
+}
+.strait-list .si{display:flex;gap:8px;padding:5px 6px;cursor:pointer;transition:color .15s,background .15s;border-radius:5px;}
+.strait-list .si:hover{color:var(--teal-bright);background:rgba(15,163,163,0.08);}
+.strait-list .si.active{color:var(--buoy);background:rgba(255,200,87,0.1);}
+.strait-list .si.active .n{color:var(--buoy);}
+.strait-list .si .n{font-family:'JetBrains Mono';color:var(--teal-bright);font-size:11px;min-width:16px;}
+.map-hint{font-family:'JetBrains Mono';font-size:10.5px;color:var(--foam-dim);letter-spacing:0.03em;text-align:center;margin-top:10px;opacity:0.7;}
+.first-pltal{
+  background:rgba(255,200,87,0.1);border:1px solid var(--buoy-dim);
+  border-radius:8px;padding:16px 18px;margin-top:18px;
+}
+.first-pltal .ft{font-family:'JetBrains Mono';font-size:10.5px;color:var(--buoy);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;}
+.first-pltal .fn{font-size:15px;font-weight:600;color:var(--foam);}
+.first-pltal .fd{font-size:12.5px;color:var(--foam-dim);margin-top:4px;}
+
+/* ===== CHALLENGES / SOLUTIONS ===== */
+.cs-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;}
+.cs-col-head{display:flex;align-items:center;gap:10px;margin-bottom:18px;}
+.cs-dot{width:8px;height:8px;border-radius:50%;}
+.cs-dot.problem{background:var(--coral);}
+.cs-dot.solution{background:var(--teal-bright);}
+.cs-col-head h4{font-size:14px;color:var(--foam);font-weight:600;}
+.cs-card{
+  background:var(--abyss);border:1px solid var(--line);border-radius:8px;
+  padding:14px 16px;margin-bottom:10px;font-size:13px;color:var(--foam-dim);
+  display:flex;gap:12px;align-items:flex-start;
+}
+.cs-card .ci{font-size:16px;flex-shrink:0;margin-top:1px;}
+.cs-card.problem .ci{color:var(--coral);}
+.cs-card.solution .ci{color:var(--teal-bright);}
+
+/* ===== BENEFITS ===== */
+.benefit-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+.benefit-card{
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:24px 20px;text-align:left;
+}
+.benefit-card .bi{font-size:24px;color:var(--buoy);margin-bottom:14px;}
+.benefit-card .bt{font-size:14px;font-weight:600;color:var(--foam);}
+
+/* ===== CLOSING / LAUT ===== */
+.laut-section{
+  background:linear-gradient(180deg,var(--deep),var(--abyss));
+  text-align:center;padding:90px 0;
+}
+.laut-letters{display:flex;justify-content:center;gap:18px;margin-bottom:36px;flex-wrap:wrap;}
+.laut-letter{
+  width:84px;height:84px;border-radius:12px;
+  background:var(--panel);border:1px solid var(--teal);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Archivo Expanded';font-size:38px;font-weight:800;color:var(--teal-bright);
+}
+.laut-words{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;max-width:900px;margin:0 auto;}
+.laut-word{font-size:13px;color:var(--foam-dim);}
+.laut-word b{display:block;color:var(--foam);font-size:14px;margin-bottom:2px;}
+
+footer{padding:32px 0;text-align:center;font-size:11.5px;color:var(--foam-dim);font-family:'JetBrains Mono';}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:980px){
+  .hero-grid{grid-template-columns:1fr;}
+  .hero-visual{height:300px;}
+  .grid-2,.grid-3{grid-template-columns:1fr;}
+  .grid-4{grid-template-columns:repeat(2,1fr);}
+  .chip-row{grid-template-columns:repeat(2,1fr);}
+  .process-rail{flex-wrap:wrap;}
+  .process-rail::before{display:none;}
+  .proc-step{flex:1 1 30%;}
+  .tab-panel.active{grid-template-columns:1fr;}
+  .map-layout{grid-template-columns:1fr;}
+  .cs-grid{grid-template-columns:1fr;}
+  .benefit-grid{grid-template-columns:repeat(2,1fr);}
+  .laut-words{grid-template-columns:repeat(2,1fr);}
+  .nav-links{display:none;}
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="nav-logo"><span class="dot"></span>PLTAL SAMSARADARYA</div>
+    <div class="nav-links nav-scroll">
+      <a href="#kebutuhan">Kebutuhan</a>
+      <a href="#teknologi">Teknologi</a>
+      <a href="#cara-kerja">Cara kerja</a>
+      <a href="#contoh">Contoh global</a>
+      <a href="#sebaran">Sebaran</a>
+      <a href="#kendala">Kendala</a>
+      <a href="#manfaat">Manfaat</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="hero-bg"></div>
+  <div class="wrap hero-content">
+    <div class="hero-grid">
+      <div>
+        <div class="eyebrow">Energi terbarukan kelautan</div>
+        <h1>Mengubah arus laut<br>menjadi <em>listrik</em>.</h1>
+        <p class="lede">PLTAL — Pembangkit Listrik Tenaga Arus Laut — memanfaatkan <b>energi kinetik arus laut</b> untuk menggerakkan turbin bawah air dan menghasilkan listrik bersih, tanpa emisi karbon, sepanjang waktu.</p>
+        <div class="hero-stats">
+          <div class="hstat"><div class="num">46%</div><div class="lbl">Konsumsi listrik oleh industri</div></div>
+          <div class="hstat"><div class="num">15%</div><div class="lbl">Bauran energi baru terbarukan</div></div>
+          <div class="hstat"><div class="num">17</div><div class="lbl">Selat berpotensi PLTAL</div></div>
+          <div class="hstat"><div class="num">40MW</div><div class="lbl">Kapasitas PLTAL pertama RI</div></div>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div class="current-line animated" style="top:25%;"></div>
+        <div class="current-line animated" style="top:50%;animation-delay:1.2s;"></div>
+        <div class="current-line animated" style="top:75%;animation-delay:2.1s;"></div>
+        <div class="turbine-wrap">
+          <div class="turbine-tower"></div>
+          <div class="turbine-blades">
+            <div class="blade"></div><div class="blade"></div><div class="blade"></div>
+          </div>
+          <div class="turbine-hub"></div>
+        </div>
+        <div class="buoy-float buoy-1"></div>
+        <div class="buoy-float buoy-2"></div>
+        <div class="hero-tag">ARUS STABIL → TURBIN → GENERATOR → GRID</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- SECTION 1: KEBUTUHAN -->
+<section id="kebutuhan">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <div class="sec-num">01 — Latar belakang</div>
+        <h2>Indonesia butuh energi alternatif</h2>
+      </div>
+      <p class="desc">Sektor industri menjadi konsumen listrik terbesar, sementara pemanfaatan energi baru terbarukan masih jauh dari target.</p>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="chart-title">Distribusi konsumsi energi listrik berdasarkan sektor</div>
+        <div class="chart-sub">Persentase dari total konsumsi nasional</div>
+        <div style="position:relative;height:240px;">
+          <canvas id="sectorChart" role="img" aria-label="Donut chart: Industri 46%, Transportasi 36%, Rumah tangga 13%, Komersial 4%, lainnya 1%">Industri 46%, Transportasi 36%, Rumah tangga 13%, Komersial 4%</canvas>
+        </div>
+        <div class="legend" id="sectorLegend"></div>
+      </div>
+
+      <div class="card">
+        <div class="chart-title">Bauran sumber energi nasional</div>
+        <div class="chart-sub">Persentase terhadap total bauran energi (target EBT 23% di 2025 belum tercapai — realisasi ±15%)</div>
+        <div style="position:relative;height:240px;">
+          <canvas id="mixChart" role="img" aria-label="Bar chart: Batu bara 40%, Minyak bumi 32%, Energi baru terbarukan 15%, Gas alam 13%">Batu bara 40%, Minyak bumi 32%, EBT 15%, Gas alam 13%</canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="insight">
+      <b>Sektor industri</b> menjadi pengguna listrik terbesar di Indonesia. Sayangnya, pemanfaatan energi terbarukan (NRE) masih rendah — padahal potensinya, termasuk dari arus laut, sangat besar dan belum tergarap maksimal.
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 2: TEKNOLOGI -->
+<section id="teknologi" class="alt">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <div class="sec-num">02 — Teknologi</div>
+        <h2>Apa itu PLTAL?</h2>
+      </div>
+      <p class="desc">Dirancang khusus untuk wilayah perairan dengan arus stabil — kondisi yang dimiliki ribuan selat di Indonesia.</p>
+    </div>
+
+    <p style="max-width:760px;font-size:15px;color:var(--foam-dim);margin-bottom:36px;">
+      PLTAL memanfaatkan energi kinetik arus laut untuk diubah menjadi listrik. Teknologi ini cocok untuk wilayah perairan dengan arus stabil, seperti Indonesia yang memiliki banyak selat dan lautan luas. PLTAL berpotensi menjadi sumber energi bersih dan berkelanjutan serta mendukung ketahanan energi di masa depan.
+    </p>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="chart-title" style="margin-bottom:16px;">Kontribusi terhadap SDGs</div>
+        <div class="chip-row">
+          <div class="sdg-chip"><div class="sdg-num">07</div><div class="sdg-name">Energi bersih &amp; terjangkau</div></div>
+          <div class="sdg-chip"><div class="sdg-num">09</div><div class="sdg-name">Industri, inovasi &amp; infrastruktur</div></div>
+          <div class="sdg-chip"><div class="sdg-num">13</div><div class="sdg-name">Penanganan perubahan iklim</div></div>
+          <div class="sdg-chip"><div class="sdg-num">14</div><div class="sdg-name">Ekosistem laut</div></div>
+        </div>
+        <div class="insight" style="margin-top:18px;">PLTAL menyediakan energi bersih dan stabil untuk sektor industri, sekaligus mengurangi emisi karbon dan menjaga ekosistem laut.</div>
+      </div>
+
+      <div class="card">
+        <div class="chart-title" style="margin-bottom:6px;">Keunggulan dan potensi PLTAL</div>
+        <table class="adv-table">
+          <tbody>
+          <tr><td class="adv-icon-cell"><div class="adv-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12c2-4 4-4 6 0s4 4 6 0 4-4 6 0"/></svg></div></td><td class=class="chart-sub" id="straitDetailSub">Arus laut relatif stabil sepanjang tahun</td></tr>
+          <tr><td class="adv-icon-cell"><div class="adv-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="6" y1="18" x2="18" y2="6"/></svg></div></td><td class=class="chart-sub" id="straitDetailSub">Tidak menghasilkan emisi karbon saat beroperasi</td></tr>
+          <tr><td class="adv-icon-cell"><div class="adv-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l8 5v10l-8 5-8-5V7z"/></svg></div></td><td class=class="chart-sub" id="straitDetailSub">Cocok untuk wilayah kepulauan seperti Indonesia</td></tr>
+          <tr><td class="adv-icon-cell"><div class="adv-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></div></td><td class=class="chart-sub" id="straitDetailSub">Potensi besar yang belum banyak dimanfaatkan</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 3: CARA KERJA -->
+<section id="cara-kerja">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <div class="sec-num">03 — Proses</div>
+        <h2>Cara kerja PLTAL</h2>
+      </div>
+      <p class="desc">Dari arus laut hingga ke jaringan listrik industri, dalam lima tahap.</p>
+    </div>
+
+    <div class="card">
+      <div class="process-rail">
+        <div class="proc-step">
+          <span class="step-num">TAHAP 1</span>
+          <div class="proc-circle">∿</div>
+          <div class="proc-label">Arus laut bergerak secara alami dan stabil</div>
+        </div>
+        <div class="proc-step">
+          <span class="step-num">TAHAP 2</span>
+          <div class="proc-circle">◉</div>
+          <div class="proc-label">Energi kinetik memutar turbin bawah laut</div>
+        </div>
+        <div class="proc-step">
+          <span class="step-num">TAHAP 3</span>
+          <div class="proc-circle">⚡</div>
+          <div class="proc-label">Generator mengubah putaran menjadi listrik</div>
+        </div>
+        <div class="proc-step">
+          <span class="step-num">TAHAP 4</span>
+          <div class="proc-circle">⌁</div>
+          <div class="proc-label">Listrik dialirkan melalui jaringan distribusi</div>
+        </div>
+        <div class="proc-step">
+          <span class="step-num">TAHAP 5</span>
+          <div class="proc-circle">🏭</div>
+          <div class="proc-label">Energi sampai ke sektor industri dan lainnya</div>
+        </div>
+      </div>
+      <div class="insight" style="margin-top:32px;">
+        Sepanjang proses ini, ekosistem laut — termasuk biota seperti penyu — tetap menjadi pertimbangan desain, sehingga turbin ditempatkan untuk meminimalkan gangguan terhadap jalur migrasi dan habitat laut.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 4: CONTOH GLOBAL -->
+<section id="contoh" class="alt">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <div class="sec-num">04 — Studi kasus</div>
+        <h2>Contoh penerapan teknologi PLTAL</h2>
+      </div>
+      <p class="desc">Lima implementasi PLTAL yang sudah beroperasi di berbagai negara.</p>
+    </div>
+
+    <div class="tab-row" id="tabRow"></div>
+    <div id="tabPanels"></div>
+  </div>
+</section>
+
+<!-- SECTION 5: SEBARAN INDONESIA -->
+<section id="sebaran">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <div class="sec-num">05 — Potensi nasional</div>
+        <h2>Sebaran wilayah potensial PLTAL di Indonesia</h2>
+      </div>
+      <p class="desc">17 selat dengan arus yang berpotensi dikembangkan, berdasarkan RUPTL PT PLN (Persero) 2025–2034.</p>
+    </div>
+
+    <div class="map-layout">
+      <div class="map-card">
+        <div id="idmap"></div>
+        <div class="map-popup" id="mapPopup"><span class="mp-num"></span><span class="mp-name"></span></div>
+        <div class="map-hint">SCROLL UNTUK ZOOM · SERET UNTUK GESER · KLIK PENANDA UNTUK DETAIL</div>
+      </div>
+      <div>
+        <div class="card" id="straitDetail" style="margin-bottom:14px;">
+          <div class="chart-title" style="margin-bottom:4px;" id="straitDetailTitle">Pilih sebuah selat</div>
+          <div class="chart-sub" id="straitDetailSub">Klik penanda pada peta atau salah satu selat di daftar bawah untuk melihat detail.</div>
+        </div>
+        <div class="card" style="margin-bottom:0;">
+          <div class="chart-title" style="margin-bottom:14px;">17 selat berpotensi</div>
+          <div class="strait-list" id="straitList"></div>
+        </div>
+        <div class="first-pltal">
+          <div class="ft">PLTAL pertama di Indonesia</div>
+          <div class="fn">Kapasitas 40 MW — akan dikembangkan</div>
+          <div class="fd">Berdasarkan RUPTL PT PLN (Persero) 2025–2034</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 6: KENDALA -->
+<section id="kendala" class="alt">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <div class="sec-num">06 — Tantangan</div>
+        <h2>Kendala implementasi PLTAL beserta solusinya</h2>
+      </div>
+      <p class="desc">Empat hambatan utama dan langkah mitigasinya.</p>
+    </div>
+
+    <div class="cs-grid">
+      <div>
+        <div class="cs-col-head"><span class="cs-dot problem"></span><h4>Kendala</h4></div>
+        <div class="cs-card problem"><span class="ci">▢</span>Keterbatasan data hidro-oseanografi di banyak wilayah perairan</div>
+        <div class="cs-card problem"><span class="ci">▢</span>Teknologi turbin laut belum matang secara komersial</div>
+        <div class="cs-card problem"><span class="ci">▢</span>Tingginya risiko korosi dan biofouling pada komponen bawah laut</div>
+        <div class="cs-card problem"><span class="ci">▢</span>Minat investasi swasta terhadap PLTAL masih rendah</div>
+      </div>
+      <div>
+        <div class="cs-col-head"><span class="cs-dot solution"></span><h4>Solusi</h4></div>
+        <div class="cs-card solution"><span class="ci">✓</span>Studi kelayakan lokasi arus laut secara sistematis</div>
+        <div class="cs-card solution"><span class="ci">✓</span>Pengembangan teknologi turbin laut yang lebih matang</div>
+        <div class="cs-card solution"><span class="ci">✓</span>Penggunaan material tahan korosi untuk komponen kritis</div>
+        <div class="cs-card solution"><span class="ci">✓</span>Kolaborasi pemerintah dan industri untuk mendorong investasi</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 7: MANFAAT -->
+<section id="manfaat">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <div class="sec-num">07 — Dampak</div>
+        <h2>Manfaat PLTAL di sektor industri</h2>
+      </div>
+      <p class="desc">Empat manfaat utama bagi industri yang mengadopsi pasokan energi dari PLTAL.</p>
+    </div>
+
+    <div class="benefit-grid">
+      <div class="benefit-card"><div class="bi">⚡</div><div class="bt">Pasokan listrik stabil</div></div>
+      <div class="benefit-card"><div class="bi">⚙</div><div class="bt">Biaya operasional lebih efisien</div></div>
+      <div class="benefit-card"><div class="bi">⛑</div><div class="bt">Membuka lowongan pekerjaan</div></div>
+      <div class="benefit-card"><div class="bi">⬡</div><div class="bt">Mendukung industri hijau</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- CLOSING: LAUT -->
+<section class="laut-section" style="border-bottom:none;">
+  <div class="wrap">
+    <div class="eyebrow" style="justify-content:center;margin-bottom:16px;">Pesan penutup</div>
+    <div class="laut-letters">
+      <div class="laut-letter">L</div>
+      <div class="laut-letter">A</div>
+      <div class="laut-letter">U</div>
+      <div class="laut-letter">T</div>
+    </div>
+    <div class="laut-words">
+      <div class="laut-word"><b>Lindungi</b>lingkungan untuk keberlangsungan energi</div>
+      <div class="laut-word"><b>Ayo</b>beralih ke energi bersih seperti PLTAL</div>
+      <div class="laut-word"><b>Utamakan</b>kemandirian energi</div>
+      <div class="laut-word"><b>Terapkan</b>teknologi cerdas</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  DASHBOARD DISUSUN BERDASARKAN INFOGRAFIS PLTAL — DIKTISAINTEK BERDAMPAK · BELMAWA
+</footer>
+
+<script>
+const FOAM = '#F4F1E8';
+const FOAM_DIM = '#9BA9AC';
+const GRID = 'rgba(244,241,232,0.08)';
+
+(function(){
+  if(typeof Chart === 'undefined'){ console.warn('Chart.js failed to load; skipping charts.'); return; }
+  Chart.defaults.font.family = "'Archivo', sans-serif";
+  Chart.defaults.color = FOAM_DIM;
+
+  /* ---- Sector donut ---- */
+  const sectorData = {
+    labels:['Industri','Transportasi','Rumah tangga','Komersial','Lainnya'],
+    values:[46,36,13,4,1],
+    colors:['#0FA3A3','#3BD6C6','#FFC857','#FF6B5E','#5A6B70']
+  };
+  new Chart(document.getElementById('sectorChart'),{
+    type:'doughnut',
+    data:{labels:sectorData.labels,datasets:[{data:sectorData.values,backgroundColor:sectorData.colors,borderColor:'#0F3B4D',borderWidth:2}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,cutout:'68%',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:(c)=>c.label+': '+c.raw+'%'}}}
+    }
+  });
+  const sl=document.getElementById('sectorLegend');
+  sectorData.labels.forEach((l,i)=>{
+    sl.innerHTML+=`<span><i style="background:${sectorData.colors[i]}"></i>${l} ${sectorData.values[i]}%</span>`;
+  });
+
+  /* ---- Energy mix bar ---- */
+  new Chart(document.getElementById('mixChart'),{
+  type:'bar',
+  data:{
+    labels:['Batu bara','Minyak bumi','EBT','Gas alam'],
+    datasets:[{
+      data:[40,32,15,13],
+      backgroundColor:['#3BD6C6','#7FE0D6','#FFC857','#FFD98A'],
+      borderRadius:4,
+      barThickness:42
+    }]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:(c)=>c.raw+'%'}}},
+    scales:{
+      y:{beginAtZero:true,max:45,grid:{color:GRID},ticks:{callback:(v)=>v+'%'}},
+      x:{grid:{display:false}}
+    }
+  }
+  });
+})();
+
+/* ---- Global examples tabs ---- */
+const examples=[
+  {name:'SeaGen',country:'Inggris',icon:'⊙',desc:'Salah satu turbin arus laut komersial pertama di dunia, dipasang di Selat Strangford, Irlandia Utara. Menjadi rujukan awal teknologi turbin sumbu horizontal bawah laut.',cap:'1.2 MW',year:'2008'},
+  {name:'Orbital O2',country:'Skotlandia',icon:'⊹',desc:'Turbin terapung berbentuk platform permukaan dengan dua rotor yang dapat diturunkan ke kolom air. Dirancang untuk perawatan yang lebih mudah karena dapat diakses dari permukaan.',cap:'2 MW',year:'2021'},
+  {name:'MeyGen',country:'Skotlandia',icon:'◈',desc:'Salah satu proyek PLTAL skala array terbesar di dunia, berlokasi di Pentland Firth. Menggunakan turbin dasar laut yang dipasang dalam barisan untuk memaksimalkan hasil energi.',cap:'6 MW (fase 1)',year:'2017'},
+  {name:'OpenHydro',country:'Prancis',icon:'◎',desc:'Turbin berbentuk cincin terbuka (open-centre) yang dipasang pada struktur dasar laut di lepas pantai Bretagne. Desainnya mengurangi dampak terhadap biota laut yang melintas.',cap:'0.5–2 MW',year:'2010-an'},
+  {name:'Kairyu',country:'Jepang',icon:'⬡',desc:'Turbin bawah laut berbentuk pesawat kembar yang dikembangkan IHI Corporation di lepas pantai Kuroshio. Mengikuti arus deras Kuroshio yang menjadi salah satu arus terkuat di dunia.',cap:'100 kW (uji coba)',year:'2022'}
+];
+const tabRow=document.getElementById('tabRow');
+const tabPanels=document.getElementById('tabPanels');
+examples.forEach((ex,i)=>{
+  const btn=document.createElement('button');
+  btn.className='tab-btn'+(i===0?' active':'');
+  btn.textContent=ex.name;
+  btn.onclick=()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-'+i).classList.add('active');
+  };
+  tabRow.appendChild(btn);
+
+  const panel=document.createElement('div');
+  panel.className='tab-panel'+(i===0?' active':'');
+  panel.id='panel-'+i;
+  panel.innerHTML=`
+    <div class="tab-visual"><div style="font-size:84px;color:#3BD6C6;opacity:0.85;">${ex.icon}</div></div>
+    <div class="tab-detail">
+      <h3>${ex.name}</h3>
+      <div class="country">${ex.country}</div>
+      <p>${ex.desc}</p>
+      <div class="tab-meta">
+        <div>Kapasitas<strong>${ex.cap}</strong></div>
+        <div>Mulai beroperasi<strong>${ex.year}</strong></div>
+      </div>
+    </div>`;
+  tabPanels.appendChild(panel);
+});
+
+/* ---- Strait data ---- */
+const straits=[
+  {name:'Selat Riau',lon:104.5,lat:1.0,note:'Jalur arus padat di gerbang barat Indonesia, dekat lalu lintas Selat Malaka.'},
+  {name:'Selat Sunda',lon:105.3,lat:-6.0,note:'Penghubung Jawa dan Sumatra dengan arus pasang surut yang kuat.'},
+  {name:'Selat Tayopakeh usa Penida',lon:115.5,lat:-8.6,note:'Perairan sempit di selatan Bali dengan arus deras antar pulau kecil.'},
+  {name:'Selat Lombok',lon:115.9,lat:-8.5,note:'Salah satu titik arus terkuat di Indonesia, bagian dari Arlindo (Arus Lintas Indonesia).'},
+  {name:'Selat Alas',lon:116.6,lat:-8.4,note:'Memisahkan Lombok dan Sumbawa, arus konsisten sepanjang tahun.'},
+  {name:'Selat Molo',lon:123.6,lat:-8.9,note:'Perairan Nusa Tenggara Timur dengan potensi arus pasang surut tinggi.'},
+  {name:'Selat Larantura',lon:123.0,lat:-8.4,note:'Selat di sekitar Flores Timur dengan karakter arus musiman.'},
+  {name:'Selat Boleng',lon:122.8,lat:-8.3,note:'Perairan sempit antar pulau kecil NTT, arus terkonsentrasi.'},
+  {name:'Selat Pantar',lon:124.4,lat:-8.2,note:'Dekat Alor, dikenal dengan arus kuat akibat topografi dasar laut curam.'},
+  {name:'Selat Mansuar',lon:131.2,lat:-1.0,note:'Perairan Raja Ampat, Papua Barat, dengan arus dipengaruhi pasang surut Pasifik.'},
+  {name:'Selat Lirung Talaud',lon:125.5,lat:4.6,note:'Wilayah paling utara Sulawesi, berhadapan langsung dengan Samudra Pasifik.'},
+  {name:'Selat Sugi Riau',lon:104.0,lat:0.8,note:'Bagian dari gugusan kepulauan Riau dengan arus antar pulau yang aktif.'},
+  {name:'Selat Lembeh',lon:125.2,lat:1.4,note:'Perairan dekat Bitung, Sulawesi Utara, jalur arus dekat Laut Sulawesi.'},
+  {name:'Selat Lampa Natuna',lon:109.5,lat:3.9,note:'Perairan Natuna di Laut Cina Selatan dengan potensi arus lintas laut dalam.'},
+  {name:'Selat Sinaboi Tenggara Medan',lon:100.6,lat:2.2,note:'Perairan pesisir timur Sumatra Utara dekat Selat Malaka.'},
+  {name:'Selat Alor',lon:124.7,lat:-8.3,note:'Berdekatan dengan Selat Pantar, dikenal arus kuat dan kaya biodiversitas laut.'},
+  {name:'Selat Patinti Halmahera Selatan',lon:128.2,lat:-3.5,note:'Perairan Maluku Utara dengan arus dipengaruhi pertemuan massa air Pasifik dan Indonesia.'}
+];
+
+const slist=document.getElementById('straitList');
+const detailTitle=document.getElementById('straitDetailTitle');
+const detailSub=document.getElementById('straitDetailSub');
+
+straits.forEach((s,i)=>{
+  const row=document.createElement('div');
+  row.className='si';
+  row.id='si-'+i;
+  row.innerHTML=`<span class="n">${String(i+1).padStart(2,'0')}</span>${s.name}`;
+  row.onclick=()=>selectStrait(i);
+  slist.appendChild(row);
+});
+
+function selectStrait(i){
+  document.querySelectorAll('.strait-list .si').forEach(el=>el.classList.remove('active'));
+  document.getElementById('si-'+i).classList.add('active');
+  detailTitle.textContent=straits[i].name;
+  detailSub.textContent=straits[i].note;
+  if(window._mapMarkers) window._mapMarkers.attr('r',d=>d===i?7:4.5).attr('fill',d=>d===i?'#FFC857':'#FF6B5E');
+  if(window._showPopup) window._showPopup(i);
+}
+
+/* ---- Indonesia map (D3, zoomable, clickable) ---- */
+(function(){
+  if(typeof d3 === 'undefined'){
+    console.warn('D3 failed to load; showing fallback map message.');
+    document.getElementById('idmap').innerHTML='<p style="font-size:13px;color:var(--foam-dim);padding:40px 0;text-align:center;">Peta tidak dapat dimuat. Lihat daftar 17 selat di sebelah kanan.</p>';
+    return;
+  }
+  const width=760,height=380;
+  const mapCard=document.querySelector('.map-card');
+  const popup=document.getElementById('mapPopup');
+  const popupNum=popup.querySelector('.mp-num');
+  const popupName=popup.querySelector('.mp-name');
+  let currentTransform=d3.zoomIdentity;
+
+  const svgEl=d3.select('#idmap').append('svg')
+    .attr('viewBox',`0 0 ${width} ${height}`).attr('width','100%').style('display','block').style('touch-action','none');
+  const zoomLayer=svgEl.append('g');
+  const proj=d3.geoMercator().center([118,-2.5]).scale(950).translate([width/2,height/2]);
+  const path=d3.geoPath(proj);
+
+  const zoom=d3.zoom().scaleExtent([1,6]).on('zoom',(ev)=>{
+    currentTransform=ev.transform;
+    zoomLayer.attr('transform',ev.transform);
+    if(popup.classList.contains('visible')) popup.classList.remove('visible');
+  });
+  svgEl.call(zoom);
+
+  function positionPopup(i){
+    const node=svgEl.node();
+    const rect=node.getBoundingClientRect();
+    const cardRect=mapCard.getBoundingClientRect();
+    const scaleX=rect.width/width, scaleY=rect.height/height;
+    const base=proj([straits[i].lon,straits[i].lat]);
+    const tx=currentTransform.applyX(base[0]);
+    const ty=currentTransform.applyY(base[1]);
+    const px=(rect.left-cardRect.left)+tx*scaleX;
+    const py=(rect.top-cardRect.top)+ty*scaleY;
+    popup.style.left=px+'px';
+    popup.style.top=py+'px';
+    popupNum.textContent=String(i+1).padStart(2,'0');
+    popupName.textContent=straits[i].name;
+    popup.classList.add('visible');
+  }
+  window._showPopup=positionPopup;
+
+  d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(world=>{
+    const countries=topojson.feature(world,world.objects.countries).features;
+    const idn=countries.filter(f=>f.id==='360');
+    zoomLayer.selectAll('path.country').data(idn).join('path')
+      .attr('class','country').attr('d',path)
+      .attr('fill','#1D5A4A').attr('stroke','#3BD6C6').attr('stroke-width',0.6).attr('opacity',0.85);
+
+    const markerSel=zoomLayer.selectAll('circle.marker').data(d3.range(straits.length)).join('circle')
+      .attr('class','marker')
+      .attr('cx',i=>proj([straits[i].lon,straits[i].lat])[0])
+      .attr('cy',i=>proj([straits[i].lon,straits[i].lat])[1])
+      .attr('r',4.5).attr('fill','#FF6B5E').attr('stroke','#0A2230').attr('stroke-width',1.2)
+      .style('cursor','pointer')
+      .on('click',(ev,i)=>selectStrait(i))
+      .on('mouseenter',function(ev,i){ d3.select(this).attr('r',7); positionPopup(i); })
+      .on('mouseleave',function(ev,i){
+        if(!document.getElementById('si-'+i).classList.contains('active')) d3.select(this).attr('r',4.5);
+        popup.classList.remove('visible');
+      });
+    window._mapMarkers=markerSel;
+  }).catch(()=>{
+    document.getElementById('idmap').innerHTML='<p style="font-size:13px;color:var(--foam-dim);padding:40px 0;text-align:center;">Peta tidak dapat dimuat. Lihat daftar 17 selat di sebelah kanan.</p>';
+  });
+})();
+</script>
+</body>
+</html>
